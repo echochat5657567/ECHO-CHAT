@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>SSML // CHAT</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="fx"></div>
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">SSML</span>
+        <span class="brand-slash">//</span>
+        <span>CHAT</span>
+      </div>
+      <div class="top-actions">
+        <button id="soundBtn" class="ghost-btn" title="Sound">♫</button>
+        <button id="settingsBtn" class="ghost-btn" title="Settings">⚙</button>
+        <button id="myProfileBtn" class="profile-mini"></button>
+      </div>
+    </header>
+
+    <section class="chat-shell">
+      <div id="messages" class="messages"></div>
+
+      <div id="typing" class="typing"></div>
+
+      <form id="composer" class="composer">
+        <input id="fileInput" type="file" hidden accept="image/*,video/*,.gif">
+        <button type="button" id="uploadBtn" class="composer-btn" title="Upload">＋</button>
+        <button type="button" id="gifBtn" class="composer-btn" title="GIFs">GIF</button>
+        <textarea id="messageInput" rows="1" maxlength="2000" placeholder="Message SSML..."></textarea>
+        <button type="submit" class="send-btn">SEND</button>
+      </form>
+      <div id="gifPicker" class="gif-picker"></div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <section id="authScreen" class="modal-screen">
+    <div class="auth-card glow-card">
+      <div class="auth-logo">SSML<span>//</span>CHAT</div>
+      <div class="auth-sub">A clean place to talk.</div>
+      <div class="auth-tabs">
+        <button type="button" class="active" data-mode="login">SIGN IN</button>
+        <button type="button" data-mode="register">CREATE</button>
+      </div>
+      <input id="authUsername" autocomplete="username" placeholder="Username">
+      <input id="authPassword" type="password" autocomplete="current-password" placeholder="Password">
+      <button type="button" id="authSubmit" class="primary-btn">ENTER CHAT</button>
+      <div id="authError" class="auth-error"></div><div id="startupError" class="auth-error"></div>
+    </div>
+  </section>
+
+  <section id="profileModal" class="overlay hidden">
+    <div class="profile-card glow-card">
+      <button class="close-btn" data-close="profileModal">×</button>
+      <div id="profileBanner" class="profile-banner"></div>
+      <div class="profile-content">
+        <div id="profileAvatar" class="profile-avatar"></div>
+        <div id="profileName" class="profile-name"></div>
+        <div id="profileBadge" class="staff-badge hidden">STAFF!</div>
+        <div id="profileImages" class="profile-images"></div>
+        <div id="profileActions"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="settingsModal" class="overlay hidden">
+    <div class="settings-card glow-card">
+      <button class="close-btn" data-close="settingsModal">×</button>
+      <h2>SETTINGS</h2>
+      <label>Volume <input id="volumeRange" type="range" min="0" max="100" value="60"></label>
+      <label class="switch-line"><input id="musicToggle" type="checkbox" checked> Background music</label>
+      <label class="switch-line"><input id="notifyToggle" type="checkbox" checked> Desktop notifications</label>
+      <button id="logoutBtn" class="danger-btn">LOG OUT</button>
+    </div>
+  </section>
+
+  <section id="editModal" class="overlay hidden">
+    <div class="settings-card glow-card">
+      <button class="close-btn" data-close="editModal">×</button>
+      <h2>EDIT PROFILE</h2>
+      <input id="editAvatar" placeholder="Profile image URL">
+      <input id="editBanner" placeholder="Banner image URL">
+      <button id="saveProfileBtn" class="primary-btn">SAVE PROFILE</button>
+    </div>
+  </section>
+
+  <section id="devModal" class="dev-screen hidden">
+    <div class="dev-card">
+      <div class="dev-title">REDEEM QR CODES</div>
+      <div class="dev-secret">
+        <input id="devPassword" type="password" placeholder="Developer password">
+        <button id="devUnlock">UNLOCK</button>
+      </div>
+      <div id="devWelcome" class="dev-welcome"></div>
+    </div>
+  </section>
+
+  <div id="commandBar" class="command-bar hidden">
+    <input id="commandInput" placeholder="Type /Commands">
+  </div>
+
+  <audio id="bgMusic" src="assets/notification.mp3" loop></audio>
+  <audio id="notificationSound" src="assets/notification.mp3"></audio>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
