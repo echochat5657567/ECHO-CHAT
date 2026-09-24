@@ -117,6 +117,13 @@ app.get("/api/me", (req, res) => {
   res.json({ user: cleanUser(db.users[username.toLowerCase()]) });
 });
 
+app.get("/api/profile/:username", (req, res) => {
+  const key = String(req.params.username || "").trim().toLowerCase();
+  const user = db.users[key];
+  if (!user) return res.status(404).json({ error: "User not found." });
+  res.json({ user: cleanUser(user) });
+});
+
 app.post("/api/profile", (req, res) => {
   const username = auth(req);
   if (!username) return res.status(401).json({ error: "Not signed in." });
@@ -177,15 +184,25 @@ function isBanned(username) {
 function addMessage(message) {
   db.messages.push(message);
 
-  // Keep the most recent 10 messages in the active history.
-  // The client also receives a system message explaining the cleanup.
-  if (db.messages.length > 10) {
-    db.messages = db.messages.slice(-10);
+  // Every tenth message clears the old history and leaves one bot notice.
+  if (db.messages.length >= 10) {
+    const removed = db.messages.length;
+    db.messages = [{
+      id: crypto.randomUUID(),
+      username: "SSML Bot",
+      avatar: "",
+      staff: true,
+      text: `${removed} messages have been deleted to prevent lag :)`,
+      bot: true,
+      reactions: {},
+      createdAt: Date.now()
+    }];
     saveDb();
-    io.emit("history-cleaned");
-  } else {
-    saveDb();
+    return true;
   }
+
+  saveDb();
+  return false;
 }
 
 io.on("connection", (socket) => {
@@ -228,25 +245,14 @@ io.on("connection", (socket) => {
       createdAt: Date.now()
     };
 
-    addMessage(message);
-    io.emit("message", message);
-
-    // Every 10-message cleanup creates the bot notice.
-    if (db.messages.length === 10) {
-      const cleanup = {
-        id: crypto.randomUUID(),
-        username: "SSML Bot",
-        avatar: "",
-        staff: true,
-        text: "10 messages have been deleted to prevent lag :)",
-        bot: true,
-        reactions: {},
-        createdAt: Date.now()
-      };
-      db.messages = [cleanup];
-      saveDb();
-      io.emit("message", cleanup);
+    const cleaned = addMessage(message);
+    if (cleaned) {
+      io.emit("history-cleaned");
+      io.emit("history", db.messages);
+      return;
     }
+
+    io.emit("message", message);
   });
 
   socket.on("react", ({ messageId, gif }) => {

@@ -21,7 +21,7 @@ function connectSocket(){
     if (m.username !== currentUser?.username) {
       notificationSound.currentTime = 0;
       notificationSound.play().catch(() => {});
-      if ($("notifyToggle").checked && Notification?.permission === "granted" && document.hidden) {
+      if ($("notifyToggle").checked && "Notification" in window && Notification.permission === "granted" && document.hidden) {
         new Notification(`${m.username} in SSML`, { body: m.text || "sent a GIF or file" });
       }
     }
@@ -30,7 +30,7 @@ function connectSocket(){
   socket.on("system-message", data => addSystem(data.text, data.kind));
 
   socket.on("history-cleaned", () => {
-    addSystem("10 messages have been deleted to prevent lag :)");
+    // The server sends the refreshed history containing the bot notice.
   });
 
   socket.on("reaction", data => rebuildReactions(data.messageId, data.username, data.gif));
@@ -58,6 +58,8 @@ let currentUser = null;
 let authMode = "login";
 let selectedGif = "";
 let devUnlocked = false;
+let profileCache = new Map();
+let settings = JSON.parse(localStorage.getItem("ssml_settings") || "{}");
 
 const $ = (id) => document.getElementById(id);
 const messages = $("messages");
@@ -66,6 +68,27 @@ const gifPicker = $("gifPicker");
 const toast = $("toast");
 const bgMusic = $("bgMusic");
 const notificationSound = $("notificationSound");
+
+function applySettings() {
+  const volume = Math.max(0, Math.min(1, Number(settings.volume ?? 0.6)));
+  $("volumeRange").value = Math.round(volume * 100);
+  $("musicToggle").checked = settings.music !== false;
+  $("notifyToggle").checked = settings.notify !== false;
+  bgMusic.volume = volume;
+  notificationSound.volume = volume;
+  if ($("musicToggle").checked && currentUser) bgMusic.play().catch(() => {});
+  else bgMusic.pause();
+}
+
+function saveSettings() {
+  settings = {
+    volume: Number($("volumeRange").value) / 100,
+    music: $("musicToggle").checked,
+    notify: $("notifyToggle").checked
+  };
+  localStorage.setItem("ssml_settings", JSON.stringify(settings));
+  applySettings();
+}
 
 function showToast(text) {
   toast.textContent = text;
@@ -96,9 +119,12 @@ function renderMessage(m) {
   row.className = "message" + (m.bot ? " bot" : "");
   row.dataset.id = m.id;
 
-  const avatar = document.createElement("div");
-  avatar.className = "message-avatar";
+  const avatar = document.createElement("button");
+  avatar.type = "button";
+  avatar.className = "message-avatar profile-link";
   avatar.style = avatarStyle(m.avatar);
+  avatar.title = `Open ${m.username}'s profile`;
+  avatar.onclick = () => openProfileByUsername(m.username);
 
   const main = document.createElement("div");
   main.className = "message-main";
@@ -107,8 +133,12 @@ function renderMessage(m) {
   meta.className = "message-meta";
 
   const name = document.createElement("span");
-  name.className = "username" + (m.staff ? " staff" : "");
+  name.className = "username" + (m.staff ? " staff" : "") + " profile-link";
   name.textContent = m.username;
+  name.title = `Open ${m.username}'s profile`;
+  name.tabIndex = 0;
+  name.onclick = () => openProfileByUsername(m.username);
+  name.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") openProfileByUsername(m.username); };
 
   meta.appendChild(name);
   if (m.staff) {
@@ -187,14 +217,23 @@ function addSystem(text, kind = "") {
 function rebuildReactions(messageId, username, gif) {
   const row = messages.querySelector(`[data-id="${CSS.escape(messageId)}"]`);
   if (!row) return;
-  let box = row.querySelector(".reactions");
+  const box = row.querySelector(".reactions");
   if (!box) return;
-  const r = document.createElement("button");
-  r.className = "reaction";
-  r.title = username;
-  r.innerHTML = `<img src="${gif}" alt="reaction">`;
+
+  let r = box.querySelector(`[data-user="${CSS.escape(username)}"]`);
+  if (!r) {
+    r = document.createElement("button");
+    r.className = "reaction";
+    r.dataset.user = username;
+    r.title = username;
+    box.appendChild(r);
+  }
+  r.innerHTML = "";
+  const img = document.createElement("img");
+  img.src = gif;
+  img.alt = `${username} reaction`;
+  r.appendChild(img);
   r.onclick = () => { if (socket) socket.emit("react", { messageId, gif }); };
-  box.appendChild(r);
 }
 
 function populateGifPicker() {
@@ -255,6 +294,7 @@ async function api(url, options = {}) {
 
 async function boot() {
   populateGifPicker();
+  applySettings();
 
   if (!token) {
     $("authScreen").classList.remove("hidden");
@@ -357,6 +397,22 @@ $("fileInput").onchange = async () => {
 $("myProfileBtn").onclick = () => openProfile(currentUser);
 $("settingsBtn").onclick = () => $("settingsModal").classList.remove("hidden");
 
+async function openProfileByUsername(username) {
+  const key = String(username || "").toLowerCase();
+  if (!key) return;
+  try {
+    let user = profileCache.get(key);
+    if (!user) {
+      const data = await api(`/api/profile/${encodeURIComponent(username)}`);
+      user = data.user;
+      profileCache.set(key, user);
+    }
+    openProfile(user);
+  } catch (e) {
+    showToast(e.message);
+  }
+}
+
 function openProfile(user) {
   $("profileBanner").style.backgroundImage = user.banner ? `url("${user.banner}")` : "";
   $("profileAvatar").style.backgroundImage = user.avatar ? `url("${user.avatar}")` : "";
@@ -368,12 +424,15 @@ function openProfile(user) {
   profileImages.forEach(url => {
     const img = document.createElement("img");
     img.src = url;
+    img.loading = "lazy";
     $("profileImages").appendChild(img);
   });
 
   const actions = $("profileActions");
   actions.innerHTML = "";
-  if (currentUser && currentUser.username.toLowerCase() === user.username.toLowerCase()) {
+  const ownProfile = currentUser && currentUser.username.toLowerCase() === user.username.toLowerCase();
+
+  if (ownProfile) {
     const edit = document.createElement("button");
     edit.className = "primary-btn";
     edit.textContent = "EDIT PROFILE";
@@ -387,7 +446,6 @@ function openProfile(user) {
   }
   $("profileModal").classList.remove("hidden");
 }
-
 document.querySelectorAll("[data-close]").forEach(btn => {
   btn.onclick = () => $(btn.dataset.close).classList.add("hidden");
 });
@@ -400,6 +458,7 @@ $("saveProfileBtn").onclick = async () => {
       body: JSON.stringify({ avatar: $("editAvatar").value, banner: $("editBanner").value })
     });
     currentUser = data.user;
+    profileCache.set(currentUser.username.toLowerCase(), currentUser);
     $("myProfileBtn").style = avatarStyle(currentUser.avatar);
     $("editModal").classList.add("hidden");
     showToast("Profile saved.");
@@ -413,25 +472,25 @@ $("logoutBtn").onclick = () => {
   location.reload();
 };
 
-$("volumeRange").oninput = () => {
-  const v = Number($("volumeRange").value) / 100;
-  bgMusic.volume = v;
-  notificationSound.volume = v;
-};
+$("volumeRange").oninput = saveSettings;
 
 $("musicToggle").onchange = () => {
+  saveSettings();
   if ($("musicToggle").checked) bgMusic.play().catch(() => {});
   else bgMusic.pause();
 };
 
 $("soundBtn").onclick = () => {
-  bgMusic.play().catch(() => {});
-  showToast("Sound enabled.");
+  $("musicToggle").checked = !$("musicToggle").checked;
+  saveSettings();
+  showToast($("musicToggle").checked ? "Sound enabled." : "Sound muted.");
 };
 
 $("notifyToggle").onchange = async () => {
-  if ($("notifyToggle").checked && Notification?.permission === "default")
+  if ($("notifyToggle").checked && "Notification" in window && Notification.permission === "default") {
     await Notification.requestPermission();
+  }
+  saveSettings();
 };
 
 window.addEventListener("keydown", e => {

@@ -28,7 +28,7 @@
       <div id="typing" class="typing"></div>
 
       <form id="composer" class="composer">
-        <input id="fileInput" type="file" hidden accept="image/*,video/*,.gif">
+        <input id="fileInput" type="file" hidden accept="image/*,video/*,image/gif,.gif">
         <button type="button" id="uploadBtn" class="composer-btn" title="Upload">＋</button>
         <button type="button" id="gifBtn" class="composer-btn" title="GIFs">GIF</button>
         <textarea id="messageInput" rows="1" maxlength="2000" placeholder="Message SSML..."></textarea>
@@ -108,6 +108,8 @@
   <audio id="bgMusic" src="assets/notification.mp3" loop></audio>
   <audio id="notificationSound" src="assets/notification.mp3"></audio>
 
+  <script src="data/Profile.js"></script>
+  <script src="data/Gifs/gifs.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script type="module" src="app.js"></script>
 </body>
